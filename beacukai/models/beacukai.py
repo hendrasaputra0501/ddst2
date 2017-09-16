@@ -6,7 +6,7 @@ import odoo.addons.decimal_precision as dp
 import logging
 _logger = logging.getLogger(__name__)
 
-class beacukai_document(models.Model):
+class BeacukaiDocument(models.Model):
 	@api.model
 	def _get_source_partner_id(self):
 		context = self._context
@@ -82,40 +82,34 @@ class beacukai_document(models.Model):
 	def name_get(self):
 		res = []
 		for doc in self:
-			doc_type = dict(self.document_type.selection).get(doc.document_type)
+			doc_type = dict(self.fields_get(allfields=['document_type'])['document_type']['selection'])[doc.document_type]
 			name = doc.registration_no!='<Empty>' and doc.registration_no or 'New BC'
 			res.append((doc.id, "%s %s"%(doc_type,name)))
 		return res
 
 	@api.onchange('shipment_type','source_partner_id','dest_partner_id')
-	def onchange_partner_id(self):
-		context = self._context
-		partner_obj = self.env['res.partner']
-		res = {}
+	def _onchange_partner_id(self):
 		address = ""
-		
-		if sel.shipment_type == 'out':
+		if self.shipment_type == 'out':
 			if self.dest_partner_id:
-				partner = partner_obj.browse(self.dest_partner_id)
-				if partner.street:
-					address += partner.street
-				if partner.street2:
-					address += ". "+partner.street2
+				if self.dest_partner_id.street:
+					address += self.dest_partner_id.street
+				if self.dest_partner_id.street2:
+					address += ". "+self.dest_partner_id.street2
 				self.dest_partner_address = address
-				if partner.default_currency_id:
-					self.currency_id = partner.default_currency_id.id
+				if self.dest_partner_id.default_currency_id:
+					self.currency_id = self.dest_partner_id.default_currency_id.id
 			else:
 				self.dest_partner_address = ''
 		elif self.shipment_type == 'in':
 			if self.source_partner_id:
-				partner = partner_obj.browse(self.source_partner_id)
-				if partner.street:
-					address += partner.street
-				if partner.street2:
-					address += ". "+partner.street2
+				if self.source_partner_id.street:
+					address += self.source_partner_id.street
+				if self.source_partner_id.street2:
+					address += ". "+self.source_partner_id.street2
 				self.source_partner_address = address
-				if partner.default_currency_id:
-					self.currency_id = partner.default_currency_id.id
+				if self.source_partner_id.default_currency_id:
+					self.currency_id = self.source_partner_id.default_currency_id.id
 			else:
 				self.dest_partner_address = ''
 
@@ -147,7 +141,7 @@ class beacukai_document(models.Model):
 			if doc.state not in ('draft', 'cancelled'):
 				raise ValidationError(_('You cannot delete a BC which is not draft or cancelled. You should cancel it instead.'))
 		
-		return super(beacukai_document, self).unlink()
+		return super(BeacukaiDocument, self).unlink()
 
 	@api.multi
 	def copy(self, default=None):
@@ -168,9 +162,9 @@ class beacukai_document(models.Model):
 			default.update(
 				date_due=time.strftime('%Y-%m-%d')
 			)
-		return super(beacukai_document, self).copy(default)
+		return super(BeacukaiDocument, self).copy(default)
 
-class beacukai_document_line(models.Model):
+class BeacukaiDocumentLine(models.Model):
 	_name = "beacukai.document.line"
 	_description = "BC Lines"
 	
@@ -207,17 +201,15 @@ class beacukai_document_line(models.Model):
 		return res
 
 	@api.onchange('product_id')
-	def onchange_product_id(self):
-		product_obj = self.env['product.product']
+	def _onchange_product_id(self):
 		if self.product_id:
 			self.product_uom = self.product_id.uom_id.id
 			self.name = self.product_id.name
 		else:
 			self.product_uom = False
 		
-	@api.one
 	@api.onchange('product_id','price_unit','product_qty','line_tax_ids')
-	def onchange_price_unit(self):
+	def _onchange_price_unit(self):
 		warning = {}
 		
 		if not self.product_id:
@@ -229,7 +221,7 @@ class beacukai_document_line(models.Model):
 				'message' : _("Please define the product first.")
 			}
 			return {'warning': warning}
-		if not self.product_qty or not self.price_unit:
+		if not self.product_qty and not self.price_unit:
 			self.price_unit = 0.0
 			self.product_qty = 0.0
 			self.price_subtotal = 0.0
@@ -237,19 +229,17 @@ class beacukai_document_line(models.Model):
 				'title' : _("Warning!"),
 				'message' : _("Please define the product qty or the price unit.")
 			}
-			self.price_unit
 			return {'warning': warning}
 			
 		taxes = self.line_tax_ids.compute_all(self.price_unit, self.doc_id.currency_id, self.product_qty, product=self.product_id)
 		self.price_subtotal = taxes['total_included']
 
-	@api.one
-	@api.onchange('product_id','price_subtotal','product_qty','line_tax_ids')
-	def onchange_price_subtotal(self, product_id, price_subtotal, product_qty, line_tax_ids):
+	@api.onchange('product_id','product_qty','price_subtotal','line_tax_ids')
+	def _onchange_price_subtotal(self):
 		res = {}
 		warning = {}
 		
-		if not product_id:
+		if not self.product_id:
 			warning = {
 				'title' : _("Warning!"),
 				'message' : _("Please define the product first.")
@@ -258,7 +248,7 @@ class beacukai_document_line(models.Model):
 			self.product_qty = 0.0
 			self.price_subtotal = 0.0
 			return {'warning': warning}
-		if not product_qty and not amount:
+		if not self.product_qty and not self.price_subtotal:
 			warning = {
 				'title' : _("Warning!"),
 				'message' : _("Please define the product qty or the price unit.")
@@ -271,13 +261,13 @@ class beacukai_document_line(models.Model):
 		price_unit = self.price_subtotal
 		total_percent =	sum([(1.0+tax.amount) for tax in self.line_tax_ids if tax.type=='percent'])
 		total_fixed = sum([tax.amount for tax in self.line_tax_ids if tax.type=='fixed'])
-		price_subtotal -= total_fixed
+		self.price_subtotal -= total_fixed
 		if total_percent:
-			price_unit = price_subtotal/total_percent
+			price_unit = self.price_subtotal/total_percent
 		if not self.product_qty:
 			self.price_unit = 0.0 
 		else:
-			self.price_unit = price_unit/product_qty
+			self.price_unit = price_unit/self.product_qty
 
 	@api.multi
 	def action_done(self):
@@ -294,7 +284,7 @@ class beacukai_document_line(models.Model):
 		context = self._context
 		return self.write({'state':'draft'})
 
-class beacukai_document_line_in(models.Model):
+class BeacukaiDocumentLineIn(models.Model):
 	_name = "beacukai.document.line.in"
 	_inherit = "beacukai.document.line"
 	_table = "beacukai_document_line"
@@ -342,12 +332,12 @@ class beacukai_document_line_in(models.Model):
 	# def default_get(self, cr, self.env.user.id, fields_list, context=None):
 	# 	# merge defaults from stock.picking with possible defaults defined on stock.picking.in
 	# 	defaults = self.pool['beacukai.document.line'].default_get(cr, self.env.user.id, fields_list, context=context)
-	# 	in_defaults = super(beacukai_document_line_in, self).default_get(cr, self.env.user.id, fields_list, context=context)
+	# 	in_defaults = super(BeacukaiDocumentLineIn, self).default_get(cr, self.env.user.id, fields_list, context=context)
 	# 	defaults.update(in_defaults)
 	# 	return defaults
 
 
-class beacukai_document_line_out(models.Model):
+class BeacukaiDocumentLineOut(models.Model):
 	_name = "beacukai.document.line.out"
 	_inherit = "beacukai.document.line"
 	_table = "beacukai_document_line"
@@ -395,6 +385,6 @@ class beacukai_document_line_out(models.Model):
 	# def default_get(self, cr, self.env.user.id, fields_list, context=None):
 	# 	# merge defaults from stock.picking with possible defaults defined on stock.picking.in
 	# 	defaults = self.pool['beacukai.document.line'].default_get(cr, self.env.user.id, fields_list, context=context)
-	# 	in_defaults = super(beacukai_document_line_out, self).default_get(cr, self.env.user.id, fields_list, context=context)
+	# 	in_defaults = super(BeacukaiDocumentLineOut, self).default_get(cr, self.env.user.id, fields_list, context=context)
 	# 	defaults.update(in_defaults)
 	# 	return defaults

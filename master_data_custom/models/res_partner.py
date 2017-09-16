@@ -3,10 +3,11 @@ import re
 from odoo import api, fields, models, tools, _
 from odoo.exceptions import ValidationError
 from odoo.osv import expression
+from odoo.osv.expression import get_unaccent_wrapper
 
 import odoo.addons.decimal_precision as dp
 
-class ResPartner(models.Model):
+class Partner(models.Model):
 	_inherit = "res.partner"
 
 	partner_code = fields.Char('Partner Code', default='/')
@@ -90,5 +91,5 @@ class ResPartner(models.Model):
 				partner_type = '.other'
 			
 			vals['partner_code'] = self.env['ir.sequence'].next_by_code(seq_obj_name+partner_type)
-		res = super(ResPartner, self).create(vals)
+		res = super(Partner, self).create(vals)
 		return res

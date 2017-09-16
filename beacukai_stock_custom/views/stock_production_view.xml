@@ -1,0 +1,125 @@
+<openerp>
+	<data>
+		<record id="view_prod_move_stock_move_form" model="ir.ui.view">
+			<field name="name">view.prod.move.stock.move.form</field>
+			<field name="model">production.move</field>
+			<field name="arch" type="xml">
+				<form version="7.0" string="Stock Production Move">
+				<sheet>
+					<group>
+						<group>
+							<!-- <field name="product_type" invisible="1" /> -->
+							<!-- <field name="blend_id" attrs="{'invisible':[('product_type','=','raw_material')],'required':[('product_type','=','finish_good')]}" on_change="onchange_product_id(product_type, blend_id, raw_material_categ_id)"/> -->
+							<field name="raw_material_categ_id" required="1" on_change="onchange_product_id(raw_material_categ_id)"/>
+							<field name="name" />
+							<label for="product_qty"/>
+							<div>
+								<field name="product_qty" />
+								<field name="product_uom" placeholder="Unit of Measure"/>
+							</div>
+						</group>
+						<group>
+							<field name="state" invisible="1"/>
+							<field name="date_done" attrs="{'invisible':[('state','=','draft')]}"/>
+						</group>
+					</group>
+					<group>
+						<group>
+							<field name="location_id" />
+						</group>
+						<group>
+							<field name="location_dest_id" />
+						</group>
+					</group>
+				</sheet>
+				</form>
+			</field>
+		</record>
+
+		<record id="view_prod_move_form" model="ir.ui.view">
+			<field name="name">view.prod.move.form</field>
+			<field name="model">production.move</field>
+			<field name="arch" type="xml">
+				<form version="7.0" string="Stock Production Mov">
+				<header>
+					<button name="action_done" type="object" states="draft" string="Confirm"/>
+					<button name="action_cancel" type="object" states="draft,done" string="Cancel"/>
+					<button name="action_set_draft" type="object" states="cancel" string="Set to Draft"/>
+					<field name="state" widget="statusbar" statusbar_visible="draft,done" />
+				</header>
+				<sheet>
+					<group>
+						<group>
+							<!-- <field name="product_type" /> -->
+							<!-- <field name="blend_id" attrs="{'invisible':[('product_type','=','raw_material')],'required':[('product_type','=','finish_good')]}" on_change="onchange_product_id(product_type, blend_id, raw_material_categ_id)"/> -->
+							<field name="raw_material_categ_id" required="1" on_change="onchange_product_id(raw_material_categ_id)"/>
+							<field name="name" />
+							<label for="product_qty"/>
+							<div>
+								<field name="product_qty" />
+								<field name="product_uom" placeholder="Unit of Measure"/>
+							</div>
+						</group>
+						<group>
+							<field name="move_id" />
+							<field name="date_done" attrs="{'invisible':[('state','=','draft')]}"/>
+						</group>
+					</group>
+					<group>
+						<group>
+							<field name="location_id" />
+						</group>
+						<group>
+							<field name="location_dest_id" />
+						</group>
+					</group>
+				</sheet>
+				</form>
+			</field>
+		</record>
+
+		<record id="view_prod_move_tree" model="ir.ui.view">
+			<field name="name">view.prod.move.tree</field>
+			<field name="model">production.move</field>
+			<field name="arch" type="xml">
+				<tree string="Stock Production Move" colors="blue:state == 'draft';black:state == 'done'">
+					<!-- <field name="product_type" /> -->
+					<!-- <field name="blend_id" attrs="{'invisible':[('product_type','=','raw_material')],'required':[('product_type','=','finish_good')]}"/> -->
+					<field name="raw_material_categ_id" required="1"/>
+					<field name="product_uom" />
+					<field name="product_qty" />
+					<field name="location_id" />
+					<field name="location_dest_id" />
+					<field name="date_done" />
+					<field name="state" />
+				</tree>
+			</field>
+		</record>
+
+		<record id="action_prod_move" model="ir.actions.act_window">
+			<field name="name">Stock Production Moves</field>
+			<field name="type">ir.actions.act_window</field>
+			<field name="res_model">production.move</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+			<!-- <field name="search_view_id" ref="view_stock_picking_custom_search" /> -->
+		</record>
+
+		<record id="action_prod_move_form" model="ir.actions.act_window.view">
+			<field eval="1" name="sequence"/>
+			<field name="view_mode">tree</field>
+			<field name="view_id" ref="view_prod_move_tree"/>
+			<field name="act_window_id" ref="action_prod_move"/>
+		</record>
+
+		<record id="action_prod_move_tree" model="ir.actions.act_window.view">
+			<field eval="2" name="sequence"/>
+			<field name="view_mode">form</field>
+			<field name="view_id" ref="view_prod_move_form"/>
+			<field name="act_window_id" ref="action_prod_move"/>
+		</record>
+
+		<menuitem id="stock_production" parent="beacukai.beacukai_menu" name="Production" sequence="4"/>
+		<menuitem action="action_prod_move" id="menu_prod_move" parent="stock_production" sequence="1"/>
+	</data>
+</openerp>

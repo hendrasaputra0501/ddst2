@@ -1,0 +1,48 @@
+<openerp>
+	<data>
+		<record model="ir.ui.view" id="vpicktype_form_inhrt_custom">
+			<field name="name">Operation Types Inherit Custom</field>
+			<field name="model">stock.picking.type</field>
+			<field name="inherit_id" ref="stock.view_picking_type_form"/>
+			<field name="arch" type="xml">
+				<field name="warehouse_id" position="after">
+					<field name="default_product_categ_id" />
+				</field>
+			</field>
+		</record>
+				
+		<record id="vpicktree_inhrt_custom" model="ir.ui.view">
+			<field name="name">stock.picking.tree.inhrt.custom</field>
+			<field name="model">stock.picking</field>
+			<!-- <field name="priority" eval="32"/> -->
+			<field name="inherit_id" ref="stock.vpicktree"/>
+			<field name="arch" type="xml">
+				<field name="backorder_id" position="after">
+					<field name="date_done" />
+				</field>
+			</field>
+		</record>
+
+		<record id="view_picking_form_inhrt_custom" model="ir.ui.view">
+			<field name="name">stock.picking.form.inhrt.custom</field>
+			<field name="model">stock.picking</field>
+			<!-- <field name="priority" eval="32"/> -->
+			<field name="inherit_id" ref="stock.view_picking_form"/>
+			<field name="arch" type="xml">
+				<button name="button_scrap" position="after">
+					<button name="action_revert_done" string="Reopen" states="done,cancel" type="object" icon="gtk-cancel" confirm="Are you sure you want to reopen this stock picking?" groups="base.group_user"/>
+				</button>
+				<field name="backorder_id" position="before">
+					<field name="product_categ_id" required="1"/>
+				</field>
+				<field name='move_lines' position='attributes'>
+					<attribute name='context'>{'address_in_id': partner_id, 'form_view_ref':'stock.view_move_picking_form', 'tree_view_ref':'stock.view_move_picking_tree', 'default_picking_type_id': picking_type_id, 'default_location_id': location_id, 'default_location_dest_id': location_dest_id, 'product_categ_id': product_categ_id}</attribute>
+				</field>
+				<field name='min_date' position='before'>
+					<field name='date_done_2' attrs="{'invisible': [('state', 'in', ('draft', 'confirmed', 'done'))], 'required':[('state','in',('waiting','assigned'))]}"/>
+					<field name='date_done' attrs="{'invisible': [('state', '!=', 'done')]}" />
+				</field>
+			</field>
+		</record>
+	</data>
+</openerp>
