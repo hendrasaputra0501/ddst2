@@ -10,13 +10,13 @@ class wizard_product_mutation(models.TransientModel):
 	from_date = fields.Date('From', default=lambda *f : time.strftime('%Y-%m-01'))
 	to_date = fields.Date('To', default=lambda *t : time.strftime('%Y-%m-%d'))
 	product_type = fields.Selection([
-		('finish_good','Finish Goods'),
-		('raw_material','Raw Materials'),
-		('auxiliary_material','Auxiliary Materials'),
-		('tools','Tools and Spares'),
-		('waste','Waste or Scrap Materials'),
-		('asset','Asset'),
-		('others','Others'),
+		('finish_good','Barang Jadi'),
+		('raw_material','Bahan Baku'),
+		('auxiliary_material','Bahan Penolong'),
+		('tools','Alat dan Suku Cadang'),
+		('waste','Barang Sampah'),
+		('asset','Aset'),
+		('others','Lain-lain'),
 		], 'Product Type', default=lambda self: self._context.get('product_type',False))
 
 	@api.multi

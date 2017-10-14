@@ -27,6 +27,8 @@
         # 'security/ir.model.access.csv',
         'views/beacukai_view.xml',
         'views/beacukai_line_view.xml',
+        'views/wizard_beacukai_incoming_view.xml',
+        'views/wizard_beacukai_outgoing_view.xml',
         'views/wizard_product_mutation_view.xml',
         'views/wizard_product_work_in_process_view.xml',
         'views/beacukai_state_view.xml',

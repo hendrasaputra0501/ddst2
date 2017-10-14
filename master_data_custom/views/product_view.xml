@@ -145,11 +145,13 @@
 			</field>
 		</record>
 
-		<!-- <record id="view_product_tree2_mutation" model="ir.ui.view">
+		<record id="view_product_tree2_mutation" model="ir.ui.view">
 			<field name="name">view.product.tree2.mutation</field>
 			<field name="model">product.product</field>
 			<field name="arch" type="xml">
 				<tree string="Product Mutation" create="false" delete="false" >
+					<field name="blend_id" invisible="1"/>
+					<field name="raw_material_categ_id" invisible="1"/>
 					<field name="default_code" string="Kode Barang"/>
 					<field name="name"  string="Nama/Deskripsi"/>
 					<field name="uom_id" string="Satuan"/>
@@ -160,6 +162,6 @@
 					<field name="all_qty" string="Saldo Buku"/>
 				</tree>
 			</field>
-		</record> -->
+		</record>
 	</data>
 </odoo>

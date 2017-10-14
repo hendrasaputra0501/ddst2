@@ -19,8 +19,10 @@
 		<menuitem action="action_beacukai_27in" id="menu_beacukai_27in" parent="incoming_beacukai" sequence="2" />
 		<menuitem action="action_beacukai_40" id="menu_beacukai_40" parent="incoming_beacukai" sequence="3" />
 
-		<menuitem action="action_report_beacukai_in" id="menu_report_beacukai_in" parent="beacukai_reports" sequence="0" />
-		<menuitem action="action_report_beacukai_out" id="menu_report_beacukai_out" parent="beacukai_reports" sequence="1" />
+		<!-- <menuitem action="action_report_beacukai_in" id="menu_report_beacukai_in" parent="beacukai_reports" sequence="0" />
+		<menuitem action="action_report_beacukai_out" id="menu_report_beacukai_out" parent="beacukai_reports" sequence="1" /> -->
+		<menuitem action="action_wizard_product_incoming" id="menu_report_beacukai_in" parent="beacukai_reports" sequence="0" />
+		<menuitem action="action_wizard_product_outgoing" id="menu_report_beacukai_out" parent="beacukai_reports" sequence="1" />
 		<menuitem action="action_wizard_product_mutation" id="stock_mutation_reports" parent="beacukai_reports" sequence="2" />
 		<menuitem action="action_wizard_product_work_in_process" id="stock_wip_reports" parent="beacukai_reports" sequence="3" />
 		

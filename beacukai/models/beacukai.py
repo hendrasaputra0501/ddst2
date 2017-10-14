@@ -75,6 +75,7 @@ class BeacukaiDocument(models.Model):
 	currency_id = fields.Many2one('res.currency', 'Currency', required=True, readonly=True, states={'draft':[('readonly',False)]}, default=lambda self: self.env['res.users'].browse(self.env.user.id).company_id.currency_id.id)
 	state = fields.Selection([('draft','Draft BC'), ('validated','Valid BC'), ('cancelled','Cancelled')], 'Status', default=lambda *s : 'draft')
 	product_lines = fields.One2many('beacukai.document.line','doc_id','Product Lines', required=True, readonly=True, states={'draft':[('readonly',False)]})
+	# company_id = fields.One2many('res.company','Company', required=True, readonly=True, default=lambda self: self.env.user.company_id.id)
 
 	_order = "registration_date desc, id desc"
 
@@ -117,7 +118,7 @@ class BeacukaiDocument(models.Model):
 	def action_done(self):
 		context = self._context
 		for doc in self:
-			self.env['beacukai.document.line'].action_done([x.id for x in doc.product_lines])
+			doc.product_lines.action_done()
 		return self.write({'state':'validated'})
 
 	@api.multi
@@ -171,11 +172,11 @@ class BeacukaiDocumentLine(models.Model):
 	doc_id = fields.Many2one('beacukai.document','Reference Doc')
 	name = fields.Text('Description')
 	product_id = fields.Many2one('product.product', 'Product', required=True)
-	product_qty = fields.Float('Quantity', digits=dp.get_precision('Product Unit of Measure'), required=True)
+	product_qty = fields.Float('Quantity', digits=dp.get_precision('Product Unit of Measure'), required=True, default=0.0)
 	product_uom = fields.Many2one('product.uom', 'Unit of Measure', required=True)
-	price_unit = fields.Float('Price Unit', digits=(2,6), required=True)
+	price_unit = fields.Float('Price Unit', digits=(2,6), required=True, default=0.0)
 	line_tax_ids = fields.Many2many('account.tax', 'beacukai_line_tax_rel', 'line_id', 'tax_id', string='Taxes')
-	price_subtotal = fields.Float('Amount', digits=dp.get_precision('Account'), required=True)
+	price_subtotal = fields.Float('Amount', digits=dp.get_precision('Account'), required=True, default=0.0)
 	
 	shipment_type = fields.Selection(related='doc_id.shipment_type', string='Shipment Type', selection=[('in','Pemasukan Barang'),('out','Pengeluaran Barang'),])
 	document_type = fields.Selection(related='doc_id.document_type', string='Jenis Dokumen', selection=[('23', 'BC 2.3'),('25','BC 2.5'),('261','BC 2.61'),('262','BC 2.62'),('27in', 'BC 2.7 Masukan'),('27out', 'BC 2.7 Keluaran'),('30', 'BC 3.0'),('40', 'BC 4.0'),('41','BC 4.1'),])
@@ -208,56 +209,18 @@ class BeacukaiDocumentLine(models.Model):
 		else:
 			self.product_uom = False
 		
-	@api.onchange('product_id','price_unit','product_qty','line_tax_ids')
+	@api.onchange('price_unit','product_qty','line_tax_ids')
 	def _onchange_price_unit(self):
 		warning = {}
 		
-		if not self.product_id:
-			self.price_unit = 0.0
-			self.product_qty = 0.0
-			self.price_subtotal = 0.0
-			warning = {
-				'title' : _("Warning!"),
-				'message' : _("Please define the product first.")
-			}
-			return {'warning': warning}
-		if not self.product_qty and not self.price_unit:
-			self.price_unit = 0.0
-			self.product_qty = 0.0
-			self.price_subtotal = 0.0
-			warning = {
-				'title' : _("Warning!"),
-				'message' : _("Please define the product qty or the price unit.")
-			}
-			return {'warning': warning}
-			
 		taxes = self.line_tax_ids.compute_all(self.price_unit, self.doc_id.currency_id, self.product_qty, product=self.product_id)
 		self.price_subtotal = taxes['total_included']
 
-	@api.onchange('product_id','product_qty','price_subtotal','line_tax_ids')
+	@api.onchange('product_qty','price_subtotal','line_tax_ids')
 	def _onchange_price_subtotal(self):
 		res = {}
 		warning = {}
 		
-		if not self.product_id:
-			warning = {
-				'title' : _("Warning!"),
-				'message' : _("Please define the product first.")
-			}
-			self.price_unit = 0.0
-			self.product_qty = 0.0
-			self.price_subtotal = 0.0
-			return {'warning': warning}
-		if not self.product_qty and not self.price_subtotal:
-			warning = {
-				'title' : _("Warning!"),
-				'message' : _("Please define the product qty or the price unit.")
-			}
-			self.price_unit = 0.0
-			self.product_qty = 0.0
-			self.price_subtotal = 0.0
-			return {'warning': warning}
-
 		price_unit = self.price_subtotal
 		total_percent =	sum([(1.0+tax.amount) for tax in self.line_tax_ids if tax.type=='percent'])
 		total_fixed = sum([tax.amount for tax in self.line_tax_ids if tax.type=='fixed'])

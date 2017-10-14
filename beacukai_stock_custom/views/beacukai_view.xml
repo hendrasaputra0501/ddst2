@@ -1,0 +1,14 @@
+<openerp>
+	<data>
+		<record id="view_beacukai_document_form_inhrt_stock" model="ir.ui.view">
+			<field name="name">beacukai.document.form.inhrt.stock</field>
+			<field name="model">beacukai.document</field>
+			<field name="inherit_id" ref="beacukai.view_beacukai_document_form" />
+			<field name="arch" type="xml">
+				<field name="picking_no" position="before">
+					<field name="picking_type_id" />
+				</field>
+			</field>
+		</record>
+	</data>
+</openerp>

@@ -6,105 +6,98 @@ from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT,DEFAULT_SERVER_DATE_FORMAT
 class BeacukaiDocument(models.Model):
 	_inherit = "beacukai.document"
 	
-	picking_ids = fields.Many2many('stock.picking', 'beacukai_stock_picking_rel', 'doc_id', 'picking_id', 'Pickings')
+	@api.model
+	def _default_picking_type(self):
+		type_obj = self.env['stock.picking.type']
+		company_id = self.env.context.get('company_id') or self.env.user.company_id.id
+		type_code = self._context.get('shipment_type',False)=='in' and 'incoming' or 'outgoing'
+		types = type_obj.search([('code', '=', type_code), ('warehouse_id.company_id', '=', company_id)])
+		if not types:
+			types = type_obj.search([('code', '=', type_code), ('warehouse_id', '=', False)])
+		return types[:1]
+
+	picking_ids = fields.Many2many('stock.picking', 'beacukai_stock_picking_rel', 'doc_id', 'picking_id', 'Pickings', readonly=True)
+	picking_type_id = fields.Many2one('stock.picking.type', 'Picking Type', required=True, readonly=True, states={'draft':[('readonly',False)]}, default=_default_picking_type,\
+		help="This will determine picking type of incoming shipment")
+	group_id = fields.Many2one('procurement.group','Procurement Group')
 
 	@api.model
-	def _prepare_picking(self, beacukai):
+	def _prepare_picking(self):
 		context = self._context
+
+		partner = self.shipment_type=='in' and (self.source_partner_id or False) or (self.dest_partner_id or False)
+		
+		if not partner:
+			raise UserError(_("You must set %s Partner in this document"%(self.shipment_type=='in' and 'Source' or 'Destination')))
+			
+		if not self.group_id:
+			self.group_id = self.group_id.create({
+				'name': self.picking_no,
+				'partner_id': partner.id
+			})
+
+		if self.shipment_type=='in' and not partner.property_stock_supplier:
+			raise UserError(_("You must set a Vendor Location for this partner %s") % partner.name)
+		elif self.shipment_type=='out' and not partner.property_stock_customer:
+			raise UserError(_("You must set a Customer Location for this partner %s") % partner.name)
+		
+		location_id, location_dest_id = False, False
+		if self.shipment_type=='in':
+			location_id = partner.property_stock_supplier.id or False
+			location_dest_id = self.dest_partner_id.property_stock_customer and self.dest_partner_id.property_stock_customer.id or self.picking_type_id.default_location_dest_id.id
+		elif self.shipment_type=='out':
+			location_id = self.source_partner_id.property_stock_customer and self.source_partner_id.property_stock_customer.id or self.picking_type_id.default_location_src_id.id
+			location_dest_id = partner.property_stock_customer.id or False
 		return {
-			'date' : datetime.strptime(time.strftime(DEFAULT_SERVER_DATE_FORMAT),DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00'),
-			'date_done' : beacukai.picking_date!=False and datetime.strptime(beacukai.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
-							(beacukai.registration_date!=False and datetime.strptime(beacukai.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') \
-								or time.strftime('%Y-%m-%d 07:00:00')),
-			'date_done_2' : beacukai.picking_date!=False and beacukai.picking_date or \
-							(beacukai.registration_date!=False and beacukai.registration_date \
+			'date' : datetime.strptime(time.strftime(DEFAULT_SERVER_DATE_FORMAT),DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 00:00:00'),
+			'date_done' : self.picking_date!=False and datetime.strptime(self.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 00:00:00') or \
+							(self.registration_date!=False and datetime.strptime(self.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 00:00:00') \
+								or time.strftime('%Y-%m-%d 00:00:00')),
+			'date_done_2' : self.picking_date!=False and self.picking_date or \
+							(self.registration_date!=False and self.registration_date \
 								or time.strftime(DEFAULT_SERVER_DATE_FORMAT)),
-			'name' : context.get('default_name',False) and context['default_name'] or beacukai.picking_no or '/',
+			'name' : context.get('default_name',False) and context['default_name'] or self.picking_no or '/',
+			'origin' : self.registration_no,
 			'state' : 'draft',
-			'type' : beacukai.shipment_type,
-			'partner_id' : beacukai.shipment_type=='in' and (beacukai.source_partner_id and beacukai.source_partner_id.id or False) or (beacukai.dest_partner_id and beacukai.dest_partner_id.id or False),
+			'picking_type_id': self.picking_type_id.id,
+			'partner_id' : self.shipment_type=='in' and (self.source_partner_id and self.source_partner_id.id or False) or (self.dest_partner_id and self.dest_partner_id.id or False),
 			'invoice_state': 'none',
+			# 'company_id': self.company_id.id,
 			'company_id': self.env.user.company_id.id,
-			# 'product_type' : context.get('product_type',False),
-		}
-
-	@api.model
-	def _prepare_move(self, line):
-		context = self._context
-
-		warehouse_obj = self.env['stock.warehouse']
-		loc_obj = self.env['stock.location']
-		location_id = False
-		location_dest_id = False
-		if line.shipment_type=='in':
-			location_id = line.source_partner_id.property_stock_supplier and line.source_partner_id.property_stock_supplier.id or False
-			location_dest_id = line.dest_partner_id.property_stock_customer and line.dest_partner_id.property_stock_customer.id or False
-			if not location_id or not location_dest_id:
-				loc_ids = loc_obj.search([('usage','=','supplier')])
-				location_id = loc_ids and loc_ids[0] or False
-				lot_ids = warehouse_obj.search([])
-				if lot_ids:
-					loc_ids=[lot_ids[0].lot_stock_id.id]
-				else:
-					loc_ids = loc_obj.search([('usage','=','internal')])
-				location_dest_id = loc_ids and loc_ids[0] or False
-		elif line.shipment_type == 'out':
-			location_id = line.source_partner_id.property_stock_customer and line.source_partner_id.property_stock_customer.id or False
-			location_dest_id = line.dest_partner_id.property_stock_customer and line.dest_partner_id.property_stock_customer.id or False
-			if not location_id or not location_dest_id:
-				lot_ids = warehouse_obj.search([])
-				if lot_ids:
-					loc_ids=[lot_ids[0].lot_stock_id.id]
-				else:
-					loc_ids = loc_obj.search([('usage','=','internal')])
-				location_id = loc_ids and loc_ids[0] or False
-				loc_ids = loc_obj.search([('usage','=','customer')])
-				location_dest_id = loc_ids and loc_ids[0] or False
-		return {
-			'date' : line.doc_id.picking_date!=False and datetime.strptime(line.doc_id.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
-						(line.doc_id.registration_date and datetime.strptime(line.doc_id.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
-							time.strftime('%Y-%m-%d 07:00:00')),
-			'date_expected' : line.doc_id.picking_date!=False and datetime.strptime(line.doc_id.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
-						(line.doc_id.registration_date and datetime.strptime(line.doc_id.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
-							time.strftime('%Y-%m-%d 07:00:00')),
-			'name' : line.name or line.product_id.name or '',
-			'state' : 'draft',
-			'type' : line.shipment_type,
-			'partner_id' : line.shipment_type=='in' and (line.doc_id.source_partner_id and line.doc_id.source_partner_id.id or False) or (line.doc_id.dest_partner_id and line.doc_id.dest_partner_id.id or False),
-			'product_id' : line.product_id and line.product_id.id or False,
-			'product_qty' : line.product_qty,
-			'product_uom' : line.product_uom.id,
-			'product_uos_qty' : line.product_qty,
-			'product_uos' : line.product_uom.id,
 			'location_id' : location_id,
 			'location_dest_id' : location_dest_id,
-			'company_id': self.env.user.company_id.id,
+			# 'product_type' : context.get('product_type',False),
 		}
 
 	@api.multi
 	def action_done(self):
 		picking_pool = self.env['stock.picking'].sudo()
+		move_pool = self.env['stock.move'].sudo()
+		pickings = self.env['stock.picking'].browse()
 		for doc in self:
-			pickings = []
 			product_types = [(x.product_id.product_type and x.product_id.product_type or 'other') for x in doc.product_lines]
 			n = 0
 			dict_temp = {}
 			ctx = self._context.copy()
 				
-			pick_dict = self._prepare_picking(doc)
+			pick_dict = self._prepare_picking()
+			picking = picking_pool.create(pick_dict)
 			
-			for line in doc.product_lines:
-				if not pick_dict.get('move_lines',False):
-					pick_dict.update({'move_lines':[]})
-				pick_dict['move_lines'].append((0, 0, self._prepare_move(line)))
+			moves = doc.product_lines._create_stock_moves(picking)
+			moves = moves.filtered(lambda x: x.state not in ('done', 'cancel')).action_confirm()
+			seq = 0
+			for move in moves:
+				seq += 5
+				move.sequence = seq
+			moves.force_assign()
+			picking.message_post_with_view('mail.message_origin_link',
+				values={'self': picking},
+				subtype_id=self.env.ref('mail.mt_note').id)
 
-			pickings |= picking_pool.create(pick_dict)
+			pickings += picking
+		pickings.action_done()
 
-			# pickings.action_confirm()
-			# pickings.action_assign()
-			pickings.action_done()
-
-			self.write({'picking_ids': map(lambda x:(4,x),[x.id for x in pickings])})
+		doc.write({'picking_ids': map(lambda x:(4,x),[x.id for x in pickings])})
 	
 		return super(BeacukaiDocument, self).action_done()
 
@@ -118,3 +111,65 @@ class BeacukaiDocument(models.Model):
 				picking.unlink()
 
 		return super(BeacukaiDocument, self).action_cancel()
+
+class BeacukaiDocumentLine(models.Model):
+	_inherit = "beacukai.document.line"
+
+	@api.multi
+	def _prepare_stock_moves(self, picking):
+		""" Prepare the stock moves data for one order line. This function returns a list of
+		dictionary ready to be used in stock.move's create()
+		"""
+		self.ensure_one()
+		res = []
+		if self.product_id.type not in ['product', 'consu']:
+			return res
+		
+		location_id = picking.location_id.id
+		location_dest_id = picking.location_dest_id.id
+
+		template = {
+			# 'date' : self.doc_id.picking_date!=False and datetime.strptime(self.doc_id.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
+			# 			(self.doc_id.registration_date and datetime.strptime(self.doc_id.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
+			# 				time.strftime('%Y-%m-%d 07:00:00')),
+			'date' : picking.date_done,
+			# 'date_expected' : line.doc_id.picking_date!=False and datetime.strptime(line.doc_id.picking_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
+			# 			(line.doc_id.registration_date and datetime.strptime(line.doc_id.registration_date, DEFAULT_SERVER_DATE_FORMAT).strftime('%Y-%m-%d 07:00:00') or \
+			# 				time.strftime('%Y-%m-%d 07:00:00')),
+			'date_expected' : picking.date_done,
+			'name' : self.name or self.product_id.name or '',
+			'state' : 'draft',
+			# 'type' : self.shipment_type,
+			'partner_id' : self.shipment_type=='in' and (self.doc_id.source_partner_id and self.doc_id.source_partner_id.id or False) or (self.doc_id.dest_partner_id and self.doc_id.dest_partner_id.id or False),
+			'product_categ_id' : self.product_id and self.product_id.categ_id.id or False,
+			'product_id' : self.product_id and self.product_id.id or False,
+			'product_uom_qty' : self.product_qty,
+			'product_uom' : self.product_uom.id,
+			'product_uos_qty' : self.product_qty,
+			'product_uos' : self.product_uom.id,
+			'location_id' : location_id,
+			'location_dest_id' : location_dest_id,
+			# 'company_id': self.doc_id.company_id.id,
+			'company_id': self.env.user.company_id.id,
+			'picking_id': picking.id,
+			'picking_type_id': self.doc_id.picking_type_id.id,
+
+			'group_id': self.doc_id.group_id.id,
+			'procurement_id': False,
+			
+			'origin': self.doc_id.registration_no,
+			
+			'route_ids': self.doc_id.picking_type_id.warehouse_id and [(6, 0, [x.id for x in self.doc_id.picking_type_id.warehouse_id.route_ids])] or [],
+			# 'warehouse_id': self.doc_id.picking_type_id.warehouse_id.id,
+		}
+		res.append(template)
+		return res
+
+	@api.multi
+	def _create_stock_moves(self, picking):
+		moves = self.env['stock.move']
+		done = self.env['stock.move'].browse()
+		for line in self:
+			for val in line._prepare_stock_moves(picking):
+				done += moves.create(val)
+		return done

@@ -25,9 +25,11 @@
     # always loaded
     'data': [
         # 'security/ir.model.access.csv',
+        'views/beacukai_view.xml',
         'views/stock_move_view.xml',
         'views/stock_picking_view.xml',
         'views/stock_production_view.xml',
+        'views/wizard_product_mutation_view.xml',
     ],
     # only loaded in demonstration mode
     'demo': [

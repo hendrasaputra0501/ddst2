@@ -22,7 +22,7 @@ class Picking(models.Model):
 	date_done_2 = fields.Date('Date of Transfer', copy=False, help="Completion Date of Transfer (Date Format)", readonly=False, states={'done':[('readonly', True)], 'cancel':[('readonly',True)]})
 	product_categ_id = fields.Many2one('product.category','Default Product Category',
 		default=lambda self: self.env['stock.picking.type'].browse(self._context.get('default_picking_type_id')).default_product_categ_id,
-		readonly=True, required=True,
+		readonly=True,
 		states={'draft': [('readonly', False)], 'confirmed': [('readonly', False)]})
 	
 	@api.onchange('date_done_2')
