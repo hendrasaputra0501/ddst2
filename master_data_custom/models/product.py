@@ -433,8 +433,8 @@ class ProductProduct(models.Model):
 		return res
 	
 	_inherit = "product.product"
-	blend_id = fields.Many2one('product.blend', string='Blend')
-	raw_material_categ_id = fields.Many2one('product.rm.category', string='Raw Material Category')
+	# blend_id = fields.Many2one('product.blend', string='Blend')
+	# raw_material_categ_id = fields.Many2one('product.rm.category', string='Raw Material Category')
 	product_type = fields.Selection(related='categ_id.product_type', selection=[
 		('finish_good','Finish Goods'),
 		('raw_material','Raw Materials'),

@@ -17,67 +17,67 @@ class StockMove(models.Model):
 	product_categ_id = fields.Many2one('product.category','Product Category', default=lambda self: self._context.get('product_categ_id',False))
 	
 	@api.multi
-	def _create_production_moves(self, line):
+	def _create_production_moves(self):
 		self.ensure_one()
 		warehouse_obj = self.env['stock.warehouse']
 		loc_obj = self.env['stock.location']
 		prod_move_obj = self.env['production.move'].sudo()
+		todo_prodmove = self.env['production.move']
 		
 		loc_ids2 = loc_obj.search([('usage','=','inventory'),('scrap_location','=',True)])
 		location_scrap_id = loc_ids2 and loc_ids2[0] or False
 		
-		date_done = line.picking_id and line.picking_id.date_done and \
-			datetime.strptime(line.picking_id.date_done, DEFAULT_SERVER_DATETIME_FORMAT).strftime('%Y-%m-%d') or \
-			(line.date and datetime.strptime(line.date, DEFAULT_SERVER_DATETIME_FORMAT).strftime('%Y-%m-%d') or time.strftime('%Y-%m-%d'))
+		date_done = self.picking_id and self.picking_id.date_done and \
+			datetime.strptime(self.picking_id.date_done, DEFAULT_SERVER_DATETIME_FORMAT).strftime('%Y-%m-%d') or \
+			(self.date and datetime.strptime(self.date, DEFAULT_SERVER_DATETIME_FORMAT).strftime('%Y-%m-%d') or time.strftime('%Y-%m-%d'))
 		
 		prod_move_created_ids = []
-		if line.product_id.product_type=='finish_good':
-			if line.location_id.usage=='production' and line.location_dest_id.usage=='internal':
-				for component in line.product_id.blend_id.blend_component_ids:
-					waste_qty = ((line.product_qty*(component.gross_consume_percentage/100.0))/((100.0-component.waste_percentage)/100.0))*(component.waste_percentage/100.0)
-					issued_qty = line.product_qty
-					new_id1 = prod_move_obj.create({
-						'product_uom' : line.product_uom.id,
+		if self.product_id.product_type=='finish_good':
+			if self.location_id.usage=='production' and self.location_dest_id.usage=='internal':
+				for component in self.product_id.blend_id.blend_component_ids:
+					waste_qty = ((self.product_qty*(component.gross_consume_percentage/100.0))/((100.0-component.waste_percentage)/100.0))*(component.waste_percentage/100.0)
+					issued_qty = self.product_qty
+					todo_prodmove |= prod_move_obj.create({
+						'product_uom' : self.product_uom.id,
 						'date_done' : date_done,
-						'product_qty' : line.product_qty or 0.0,
+						'product_qty' : self.product_qty or 0.0,
 						'name' : component.raw_material_categ_id.name or 'Raw Material Consumed',
-						# 'blend_id' : line.blend_id.id or False,
+						# 'blend_id' : self.blend_id.id or False,
 						'raw_material_categ_id' : component.raw_material_categ_id.id,
-						'location_id' : line.location_id.id,
-						'location_dest_id' : line.location_dest_id.id,
+						'location_id' : self.location_id.id,
+						'location_dest_id' : self.location_dest_id.id,
 						'state': 'draft',
-						'move_id':line.id,
+						'move_id':self.id,
 					})
-					new_id2 = prod_move_obj.create({
+					todo_prodmove |= prod_move_obj.create({
 						'date_done' : date_done,
-						'product_uom' : line.product_uom.id,
+						'product_uom' : self.product_uom.id,
 						'product_qty' : waste_qty or 0.0,
 						'name' : component.raw_material_categ_id.name or 'Raw Material Wasted',
 						'raw_material_categ_id' : component.raw_material_categ_id.id,
-						'location_id' : line.location_id.id,
-						'location_dest_id' : location_scrap_id,
+						'location_id' : self.location_id.id,
+						'location_dest_id' : location_scrap_id and location_scrap_id.id or False,
 						'state': 'draft',
-						'move_id':line.id,
+						'move_id':self.id,
 					})
-					prod_move_created_ids.extend([new_id1,new_id2])
-		elif line.product_id.product_type=='raw_material':
-			if line.location_id.usage=='internal' and line.location_dest_id.usage=='production':
-				new_id = prod_move_obj.create({
-					'product_uom' : line.product_uom.id,
+					# prod_move_created_ids.extend([new_id1,new_id2])
+		elif self.product_id.product_type=='raw_material':
+			if self.location_id.usage=='internal' and self.location_dest_id.usage=='production':
+				todo_prodmove |= prod_move_obj.create({
+					'product_uom' : self.product_uom.id,
 					'date_done' : date_done,
-					'product_qty' : line.product_qty or 0.0,
-					'name' : line.product_id.raw_material_categ_id.name or 'Raw Material Issued',
-					# 'blend_id' : line.blend_id.id or False,
-					'raw_material_categ_id' : line.product_id.raw_material_categ_id.id,
-					'location_id' : line.location_id.id,
-					'location_dest_id' : line.location_dest_id.id,
+					'product_qty' : self.product_qty or 0.0,
+					'name' : self.product_id.raw_material_categ_id.name or 'Raw Material Issued',
+					# 'blend_id' : self.blend_id.id or False,
+					'raw_material_categ_id' : self.product_id.raw_material_categ_id.id,
+					'location_id' : self.location_id.id,
+					'location_dest_id' : self.location_dest_id.id,
 					'state': 'draft',
-					'move_id':line.id,
+					'move_id':self.id,
 				})
 				prod_move_created_ids.append(new_id)
 
-		if prod_move_created_ids:
-			prod_move_obj.action_done(prod_move_created_ids)
+		todo_prodmove.action_done()
 
 	@api.multi
 	def action_done(self):
@@ -207,11 +207,13 @@ class StockMove(models.Model):
 
 		# set the move as done
 		# self.write({'state': 'done', 'date': time.strftime(DEFAULT_SERVER_DATETIME_FORMAT)})
-		self.write({'state': 'done', 'date': (self.picking_id.date_done and self.picking_id.date_done or time.strftime("%Y-%m-%d 07:00:00"))})
+		# self.write({'state': 'done', 'date': (self.picking_id.date_done and self.picking_id.date_done or time.strftime("%Y-%m-%d 07:00:00"))})
+		for move in self:
+			move.write({'state': 'done', 'date': (move.picking_id.date_done and move.picking_id.date_done or time.strftime("%Y-%m-%d 07:00:00"))})
 
 		# if it is using product finish good or raw material, then we move of the raw material which is issue or receipt to or from production
 		for move in self:
-			self._create_production_moves(move)
+			move._create_production_moves()
 
 		procurements.check()
 		

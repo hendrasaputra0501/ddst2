@@ -97,7 +97,7 @@ class BeacukaiDocument(models.Model):
 			pickings += picking
 		pickings.action_done()
 
-		doc.write({'picking_ids': map(lambda x:(4,x),[x.id for x in pickings])})
+		self.write({'picking_ids': map(lambda x:(4,x),[x.id for x in pickings])})
 	
 		return super(BeacukaiDocument, self).action_done()
 
