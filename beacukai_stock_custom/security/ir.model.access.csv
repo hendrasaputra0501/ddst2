@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_beacukai_stock_custom_beacukai_stock_custom,beacukai_stock_custom.beacukai_stock_custom,model_beacukai_stock_custom_beacukai_stock_custom,,1,0,0,0
+access_production_custom_1,production.move pduser,model_production_move,group_bc_production_user,1,1,1,0
+access_production_custom_7,production.move user,model_production_move,stock.group_stock_user,1,0,0,0

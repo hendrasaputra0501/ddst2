@@ -57,11 +57,21 @@ class wizard_product_outgoing(models.TransientModel):
 			'product_type':self.product_type,
 			'shipment_type':self.shipment_type,
 			}
+		report_name = 'beacukai.outgoing_doc_xlsx'
+		context = self._context
 		
+		# products = self.env['product.product'].search([('product_type','=',self.product_type)])
+		# context = dict(self.env.context, active_ids=products.ids)
+		report = self.env['ir.actions.report.xml'].with_context(context).search([('report_name', '=', report_name)], limit=1)
+		if not report:
+			raise UserError(_("Bad Report Reference") + _("This report is not loaded into the database: %s.") % report_name)
 		return {
-				'type': 'ir.actions.report.xml',
-				'report_name': 'beacukai.in.form.xls',
-				'report_type': 'xls',
-				'datas': datas,
-				}
+			'context': context,
+			'datas': datas,
+			'type': 'ir.actions.report.xml',
+			'report_name': report.report_name,
+			'report_type': report.report_type,
+			'report_file': report.report_file,
+			'name': report.name,
+		}
 wizard_product_outgoing()

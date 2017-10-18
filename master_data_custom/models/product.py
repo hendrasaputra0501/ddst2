@@ -150,6 +150,8 @@ class ProductTemplate(models.Model):
 			self.product_type = self.categ_id.product_type and self.categ_id.product_type or False
 	
 class ProductProduct(models.Model):
+	_inherit = "product.product"
+	
 	@api.multi
 	def _compute_movement_quantities(self, lot_id, owner_id, package_id, from_date=False, to_date=False):
 		Location = self.env['stock.location']
@@ -221,7 +223,6 @@ class ProductProduct(models.Model):
 		where_adj_out = [tuple(stock_loc_ids),tuple(inventory_loss_loc_ids),tuple(product_ids),tuple(states)]
 
 		date_clause, date_clause_in, date_clause_out = '', '', ''
-
 		if from_date and to_date:
 			date_clause = " and date>=%s and date<=%s "
 			date_clause_in = " and date<%s "
@@ -431,8 +432,23 @@ class ProductProduct(models.Model):
 			product.all_qty = res[product.id]['all_qty']
 			product.adj_qty = res[product.id]['adj_qty']
 		return res
+
+	@api.multi
+	def _product_mutation(self, field_names=None, arg=False):
+		if self._context.get('from_date',False) and not self._context.get('to_date',False):
+			from_date = self._context.get('from_date')
+			to_date = date_now
+		elif not self._context.get('from_date',False) and context.get('to_date',False):
+			from_date = date_first
+			to_date = self._context.get('to_date',False)
+		elif not self._context.get('from_date',False) and not context.get('to_date',False):
+			from_date = date_first
+			to_date = date_now
+		else:
+			from_date = self._context.get('from_date',False)
+			to_date = self._context.get('to_date',False)
+		return self.with_context(self._context)._compute_movement_quantities(self._context.get('lot_id'), self._context.get('owner_id'), self._context.get('package_id'), from_date, to_date)
 	
-	_inherit = "product.product"
 	# blend_id = fields.Many2one('product.blend', string='Blend')
 	# raw_material_categ_id = fields.Many2one('product.rm.category', string='Raw Material Category')
 	product_type = fields.Selection(related='categ_id.product_type', selection=[

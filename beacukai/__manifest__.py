@@ -23,8 +23,8 @@
 
     # always loaded
     'data': [
-        # 'security/beacukai_security.xml',
-        # 'security/ir.model.access.csv',
+        'security/beacukai_security.xml',
+        'security/ir.model.access.csv',
         'views/beacukai_view.xml',
         'views/beacukai_line_view.xml',
         'views/wizard_beacukai_incoming_view.xml',
@@ -33,6 +33,7 @@
         'views/wizard_product_work_in_process_view.xml',
         'views/beacukai_state_view.xml',
         'views/menuitem.xml',
+        'reports.xml',
         # 'report/report_view.xml',
     ],
     # only loaded in demonstration mode
