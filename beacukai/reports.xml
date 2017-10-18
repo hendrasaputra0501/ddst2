@@ -1,0 +1,20 @@
+<odoo>
+	<data>
+		<record id="action_report_beacukai_incoming" model="ir.actions.report.xml">
+			<field name="name">Incoming Beacukai Products</field>
+			<field name="model">beacukai.document.line.in</field>
+			<field name="type">ir.actions.report.xml</field>
+			<field name="report_name">beacukai.incoming_doc_xlsx</field>
+			<field name="report_type">xlsx</field>
+			<field name="auto" eval="False"/>
+		</record>
+		<record id="action_report_beacukai_outgoing" model="ir.actions.report.xml">
+			<field name="name">Outgoing Beacukai Products</field>
+			<field name="model">beacukai.document.line.out</field>
+			<field name="type">ir.actions.report.xml</field>
+			<field name="report_name">beacukai.outgoing_doc_xlsx</field>
+			<field name="report_type">xlsx</field>
+			<field name="auto" eval="False"/>
+		</record>
+	</data>
+</odoo>

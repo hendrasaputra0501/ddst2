@@ -1,0 +1,12 @@
+<odoo>
+	<data>
+		<record id="action_report_product_mutation_xlsx" model="ir.actions.report.xml">
+			<field name="name">Product Mutations</field>
+			<field name="model">product.product</field>
+			<field name="type">ir.actions.report.xml</field>
+			<field name="report_name">product.mutation_report_xlsx</field>
+			<field name="report_type">xlsx</field>
+			<field name="auto" eval="False"/>
+		</record>
+	</data>
+</odoo>
