@@ -245,9 +245,9 @@ class beacukai_report_xlsx(ReportXlsx):
 			row_pos += 1
 
 		# print setup
-		ws.print_area(0, 0, row_pos, 9) #print area of selected cell
+		ws.print_area(0, 0, row_pos, 12) #print area of selected cell
 		# ws.set_margins(3, 3, 3, 3) 
-		ws.repeat_rows(0,3) #repeat header
+		ws.repeat_rows(0,5) #repeat header
 		ws.set_paper(9)  # set A4 as page format
 		pages_horz = 1 # wide
 		pages_vert = 0 # as long as necessary
